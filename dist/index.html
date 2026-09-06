@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1">
+  <meta name="description" content="Protótipo funcional da Fase 1 do Projeto Mango">
+  <title>Projeto Mango - Fase 1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main id="game" aria-label="Projeto Mango">
+    <canvas id="stars" aria-hidden="true"></canvas>
+    <canvas id="globe3d" aria-hidden="true"></canvas>
+    <canvas id="globe" tabindex="0" aria-label="Globo político navegável. Arraste para girar, use a roda para aproximar e clique em um país para inspecionar."></canvas>
+
+    <aside id="panel" class="panel" aria-label="Painel de informações">
+      <header class="brand">
+        <span class="crown" aria-hidden="true">♛</span>
+        <span class="project">PROJETO</span>
+        <strong>MANGO</strong>
+        <small class="version">PROTÓTIPO v0.35</small>
+      </header>
+      <button id="collapse" class="collapse" type="button" aria-label="Recolher painel" title="Recolher painel (P)">«</button>
+      <section id="panelContent" class="panel-content" aria-live="polite"></section>
+      <div class="panel-footer">
+        <button id="takeControl" class="primary hidden" type="button">ASSUMIR CONTROLE</button>
+        <p id="unavailable" class="unavailable hidden">País indisponível para controle na Fase 1</p>
+        <button id="collapseWide" class="secondary" type="button">RECOLHER PAINEL&nbsp;&nbsp;«</button>
+      </div>
+    </aside>
+
+    <section class="toolbar" aria-label="Controles do jogo">
+      <button id="help" type="button" title="Ajuda" aria-label="Ajuda">?</button>
+      <button id="motion" type="button" title="Alternar movimento reduzido" aria-pressed="false" aria-label="Movimento reduzido">◫</button>
+      <button id="sound" type="button" title="Ativar ou silenciar áudio" aria-pressed="false" aria-label="Áudio">♪</button>
+      <button id="reset" type="button" title="Retornar ao mundo" aria-label="Retornar ao mundo">⌂</button>
+    </section>
+
+    <section id="zoomBox" class="zoom-box" aria-label="Zoom">
+      <span>ZOOM · <b id="zoomDistance">2160 km</b></span>
+      <button id="zoomOut" type="button" aria-label="Afastar">−</button>
+      <input id="zoomRange" type="range" min="0" max="100" value="29" aria-label="Nível de zoom">
+      <button id="zoomIn" type="button" aria-label="Aproximar">+</button>
+    </section>
+
+    <div class="hint"><span class="mouse">◉</span> Arraste para girar o globo <span class="sep">•</span> Roda para zoom <span class="sep">•</span> Clique para inspecionar</div>
+
+    <dialog id="helpDialog">
+      <button class="dialog-close" type="button" aria-label="Fechar">×</button>
+      <h2>COMO NAVEGAR</h2>
+      <p>Arraste o globo para girá-lo. Use a roda do mouse ou os controles de zoom. Clique em qualquer país para inspecionar seus dados.</p>
+      <p>As setas giram o mundo. + e - controlam o zoom. Esc volta ao estado MUNDO e P recolhe o painel.</p>
+    </dialog>
+
+    <dialog id="confirmDialog">
+      <button class="dialog-close" type="button" aria-label="Fechar">×</button>
+      <div id="confirmFlag" class="confirm-flag"></div>
+      <h2 id="confirmTitle">NAÇÃO ESCOLHIDA</h2>
+      <p id="confirmText"></p>
+      <button id="confirmOk" class="primary" type="button">INICIAR GOVERNO</button>
+      <p class="phase-note">O sistema de governo será desenvolvido na Fase 2.</p>
+    </dialog>
+  </main>
+  <script src="assets/d3.min.js"></script>
+  <script src="assets/world-data.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
