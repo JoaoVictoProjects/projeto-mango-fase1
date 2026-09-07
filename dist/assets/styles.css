@@ -4,8 +4,8 @@ html,body,#game{margin:0;width:100%;height:100%;overflow:hidden;background:var(-
 button,input{font:inherit}
 button{color:var(--text)}
 #game{position:relative;isolation:isolate;background:radial-gradient(circle at 70% 35%,#14243e 0,#080d1b 36%,#030610 82%)}
-#stars,#globe3d,#globe{position:absolute;inset:0;width:100%;height:100%}
-#stars{z-index:-1}#globe3d{z-index:0;pointer-events:none}#globe{z-index:1}
+#stars,#globe3d,#territoryMesh,#globe{position:absolute;inset:0;width:100%;height:100%}
+#stars{z-index:-1}#globe3d{z-index:0;pointer-events:none}#territoryMesh{z-index:.5;pointer-events:none}#globe{z-index:1}
 #globe{cursor:grab;outline:none;touch-action:none}
 #globe:active{cursor:grabbing}
 #globe:focus-visible{box-shadow:inset 0 0 0 2px var(--mango)}
