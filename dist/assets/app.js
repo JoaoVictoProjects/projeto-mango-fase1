@@ -66,7 +66,7 @@
       .replace("vec3(.020,.034,.036)*(pixelGrain-.5)*.58","vec3(.020,.034,.036)*(pixelGrain-.5)*.18")
       .replace("vec3(.042,.061,.060)*step(.958,pixelFine)-vec3(.014,.021,.020)*step(pixelFine,.025)","vec3(.018,.026,.026)*step(.978,pixelFine)-vec3(.006,.009,.009)*step(pixelFine,.012)")
       .replace("land.rgb*(.62+.42*landLarge)+vec3(.15,.105,.045)*(mineral-.5)*2.2+vec3(.08)*step(.87,landGrain)","land.rgb*(.82+.24*landLarge)+vec3(.085,.060,.028)*(mineral-.5)*1.15+vec3(.055)*step(.91,landGrain)")
-      .replace("vec3 landNormal=normalize(viewNormal+vec3(0.,gx,-gy)+(mineral-.5)*.035)","vec3 landNormal=normalize(viewNormal+(mineral-.5)*.022)")
+      .replace("vec3 landNormal=normalize(viewNormal+vec3(0.,gx,-gy)+(mineral-.5)*.035)","float landHeightDx=dFdx(landMask),landHeightDy=dFdy(landMask),landHeightStrength=min(1.65,uRadius*.0055);vec3 landNormal=normalize(viewNormal+vec3(0.,landHeightDx,-landHeightDy)*landHeightStrength+(mineral-.5)*.022)")
       .replace("float landMask=step(.05,land.a),coast=","float landMask=step(.05,land.a),neighborLand=min(min(step(.05,length(idL)),step(.05,length(idR))),min(step(.05,length(idU)),step(.05,length(idD)))),politicalSeam=seam*landMask*neighborLand,coast=")
       .replace("lit=mix(lit,lit*.19,seam*.78)","float inkVariation=.90+.08*noise(uv*vec2(820.,410.));lit=mix(lit,lit*vec3(.43,.45,.43),screenInk*inkVariation)")
       .replace("vec3(1.,.72,.34)*bevel*bevelDirection*.62","vec3(0.)")
