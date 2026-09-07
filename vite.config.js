@@ -16,7 +16,6 @@ function copyClassicAssets() {
         "app.js",
         "d3.min.js",
         "reference.png",
-        "territory-mesh.js",
         "world-data.js"
       ];
 
