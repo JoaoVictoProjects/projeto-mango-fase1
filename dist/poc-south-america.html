@@ -19,7 +19,7 @@ function pattern(base,seed){const t=document.createElement("canvas"),g=t.getCont
 const patterns=Object.fromEntries(entities.map((e,i)=>[e.iso2,pattern(colors[e.iso2]||"#75864d",317+i*997)]));
 const oceanTile=(()=>{const t=document.createElement("canvas"),g=t.getContext("2d"),r=rand(71381);t.width=t.height=96;g.fillStyle="#073457";g.fillRect(0,0,96,96);for(let i=0;i<760;i++){let x=r()*96|0,y=r()*96|0;g.fillStyle=r()>.55?"rgba(78,145,177,.10)":"rgba(0,13,27,.16)";g.fillRect(x,y,1+(r()*4|0),1)}for(let y=8;y<96;y+=17){g.fillStyle="rgba(76,145,172,.08)";g.fillRect((y*11)%29,y,35,1)}return ctx.createPattern(t,"repeat")})();
 function shape(e,style,stroke,width,transform){ctx.save();if(transform)transform();ctx.beginPath();path(e.feature);ctx.fillStyle=style;ctx.fill("evenodd");if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}ctx.restore()}
-function pieceTransform(e,height,shrink=1){const a=projection(d3.geoCentroid(e.feature))||[C,C];return()=>{ctx.translate(C,C);ctx.scale(1+height,1+height);ctx.translate(-C,-C);ctx.translate(a[0],a[1]);ctx.scale(shrink,shrink);ctx.translate(-a[0],-a[1])}}
+function pieceTransform(e,height,shrink=1,ox=0,oy=0){const a=projection(d3.geoCentroid(e.feature))||[C,C];return()=>{ctx.translate(ox,oy);ctx.translate(C,C);ctx.scale(1+height,1+height);ctx.translate(-C,-C);ctx.translate(a[0],a[1]);ctx.scale(shrink,shrink);ctx.translate(-a[0],-a[1])}}
 function render(){
  projection.scale(scale).rotate(rotation);
  ctx.clearRect(0,0,W,W);ctx.imageSmoothingEnabled=false;
@@ -27,8 +27,8 @@ function render(){
  ctx.save();ctx.beginPath();path({type:"Sphere"});ctx.strokeStyle="rgba(92,185,230,.34)";ctx.lineWidth=2;ctx.shadowColor="#4faee4";ctx.shadowBlur=12;ctx.stroke();ctx.restore();
  const visible=entities.filter(e=>d3.geoDistance(d3.geoCentroid(e.feature),projection.invert([C,C]))<1.7).sort((a,b)=>d3.geoCentroid(a.feature)[1]-d3.geoCentroid(b.feature)[1]);
  for(const e of visible){ctx.save();ctx.shadowColor="rgba(0,0,0,.9)";ctx.shadowBlur=8;ctx.shadowOffsetY=4;shape(e,"rgba(0,5,8,.86)",null,0,pieceTransform(e,.004,.998));ctx.restore()}
- for(let layer=0;layer<8;layer++){const h=.003+layer*.00225;for(const e of visible){const side=shade(colors[e.iso2]||"#75864d",.28+layer*.025);shape(e,side,"rgba(0,0,0,.62)",.8,pieceTransform(e,h,.997))}}
- for(const e of visible){const t=pieceTransform(e,.021,.993);shape(e,patterns[e.iso2],"rgba(3,8,8,.9)",2.1,t);shape(e,"rgba(255,239,173,.045)","rgba(239,188,83,.62)",.7,pieceTransform(e,.022,.993))}
+ for(let layer=0;layer<8;layer++){const h=.003+layer*.00225,ox=4.5*(1-layer/7),oy=6*(1-layer/7);for(const e of visible){const side=shade(colors[e.iso2]||"#75864d",.28+layer*.025);shape(e,side,"rgba(0,0,0,.6)",.65,pieceTransform(e,h,.996,ox,oy))}}
+ for(const e of visible){const t=pieceTransform(e,.021,.993);shape(e,patterns[e.iso2],"rgba(3,8,8,.86)",1.15,t);shape(e,"rgba(255,239,173,.04)","rgba(239,188,83,.56)",.55,pieceTransform(e,.022,.993,-.35,-.45))}
  ctx.save();ctx.globalCompositeOperation="screen";ctx.beginPath();ctx.arc(C,C,scale+2,-1.18,1.15);ctx.strokeStyle="#ffaf4a";ctx.lineWidth=3;ctx.shadowColor="#ff9c34";ctx.shadowBlur=20;ctx.stroke();ctx.restore();
  const labels={BR:"Brasil",AR:"Argentina",CL:"Chile",PE:"Peru",BO:"Bolívia",CO:"Colômbia",VE:"Venezuela"};
  ctx.textAlign="center";ctx.textBaseline="middle";for(const e of visible){if(!labels[e.iso2])continue;const p=projection(d3.geoCentroid(e.feature));if(!p)continue;ctx.font=`${e.iso2==="BR"?26:15}px "Segoe UI",sans-serif`;ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.9)";ctx.strokeText(labels[e.iso2],p[0]*1.019-C*.019,p[1]*1.019-C*.019);ctx.fillStyle="#f4ead4";ctx.fillText(labels[e.iso2],p[0]*1.019-C*.019,p[1]*1.019-C*.019)}
