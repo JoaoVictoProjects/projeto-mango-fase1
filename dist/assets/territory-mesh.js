@@ -9,7 +9,13 @@ function startWhenReady(){
 
 function initialize(bridge){
   if(!bridge?.entities||!window.d3){document.documentElement.dataset.structuralRenderer='fallback';return;}
-  const visibleEntities=[...bridge.entities].filter(entity=>entity?.feature?.geometry?.coordinates?.length);
+  const visibleEntities=[...bridge.entities]
+    .filter(entity=>entity?.feature?.geometry?.coordinates?.length)
+    .map((entity,index)=>Object.assign(entity,{
+      anchor:Array.isArray(entity.anchor)?entity.anchor:d3.geoCentroid(entity.feature),
+      pickId:entity.pickId||index+1
+    }));
+  const polygonsOf=geometry=>geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
   const topHeight=.018,bevelHeight=.012,shrink=.992;
   const colorCache=new Map();
   const rgb=hex=>{
@@ -48,7 +54,7 @@ function initialize(bridge){
       const baseColor=rgb(entity.iso2==='AQ'?'#b8c8c9':bridge.colorFor(entity.iso2||entity.id));
       const anchorProjection=projection(entity.anchor);
       if(!anchorProjection)continue;
-      for(const polygon of entity.feature.geometry.coordinates){
+      for(const polygon of polygonsOf(entity.feature.geometry)){
         for(const ring of polygon){
           const base=projectRing(ring,projection,center,anchorProjection,.001,1);
           const bevel=projectRing(ring,projection,center,anchorProjection,bevelHeight,.996);
