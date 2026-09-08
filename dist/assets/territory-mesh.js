@@ -18,14 +18,14 @@ function initialize(bridge){
   const polygonsOf=geometry=>geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
   const topHeight=.011,bevelHeight=.007,shrink=.996;
   const grainCanvas=document.createElement('canvas'),grainCtx=grainCanvas.getContext('2d');
-  grainCanvas.width=grainCanvas.height=64;
+  grainCanvas.width=grainCanvas.height=128;
   let grainSeed=0x4d414e47;
-  for(let i=0;i<780;i++){
-    grainSeed=(grainSeed*1664525+1013904223)>>>0;const x=grainSeed&63;
-    grainSeed=(grainSeed*1664525+1013904223)>>>0;const y=grainSeed&63;
-    grainSeed=(grainSeed*1664525+1013904223)>>>0;const light=(grainSeed&3)!==0;
-    grainCtx.fillStyle=light?'rgba(244,220,158,.18)':'rgba(0,8,12,.16)';
-    grainCtx.fillRect(x,y,(grainSeed&7)===0?2:1,1);
+  const grainRandom=()=>{grainSeed^=grainSeed<<13;grainSeed^=grainSeed>>>17;grainSeed^=grainSeed<<5;return(grainSeed>>>0)/4294967296;};
+  for(let i=0;i<1500;i++){
+    const x=Math.floor(grainRandom()*128),y=Math.floor(grainRandom()*128),light=grainRandom()>.46;
+    const alpha=.035+grainRandom()*.115,size=grainRandom()>.94?2:1;
+    grainCtx.fillStyle=light?`rgba(244,220,158,${alpha})`:`rgba(0,8,12,${alpha*.9})`;
+    grainCtx.fillRect(x,y,size,1);
   }
   const grainPattern=ctx=>ctx.createPattern(grainCanvas,'repeat');
   const colorCache=new Map();
