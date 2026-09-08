@@ -1,160 +1,96 @@
-import * as THREE from './three.module.min.js';
+const enabled=new URLSearchParams(location.search).get('structural')==='1';
+if(enabled)startWhenReady();
 
-const enabled = new URLSearchParams(location.search).get('structural') === '1';
-if (enabled) startWhenReady();
-
-function startWhenReady() {
-  if (window.MANGO_RENDER_BRIDGE) return initialize(window.MANGO_RENDER_BRIDGE);
-  let settled = false;
-  const timeout = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    document.documentElement.dataset.structuralRenderer = 'fallback';
-    console.warn('[Mango structural] Ponte indisponível; fallback v0.37 preservado.');
-  }, 5000);
-  addEventListener('mango:render-bridge-ready', event => {
-    if (settled) return;
-    settled = true;
-    clearTimeout(timeout);
-    initialize(event.detail);
-  }, { once: true });
+function startWhenReady(){
+  if(window.MANGO_RENDER_BRIDGE)return initialize(window.MANGO_RENDER_BRIDGE);
+  addEventListener('mango:render-bridge-ready',event=>initialize(event.detail),{once:true});
+  setTimeout(()=>{if(!window.MANGO_STRUCTURAL_DRAW){document.documentElement.dataset.structuralRenderer='fallback';console.warn('[Mango structural] Ponte indisponível; fallback v0.37 preservado.')}},5000);
 }
 
-function initialize(bridge) {
-  const canvas = document.querySelector('#territoryMesh');
-  if (!canvas || !bridge || !window.d3) {
-    document.documentElement.dataset.structuralRenderer = 'fallback';
-    return;
-  }
-  try {
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, premultipliedAlpha: true, powerPreference: 'high-performance' });
-    renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(1);
-    const scene = new THREE.Scene();
-    const camera = new THREE.Camera();
-    camera.matrixAutoUpdate = false;
-    const uniforms = {
-      uResolution: { value: new THREE.Vector2(1, 1) },
-      uCenter: { value: new THREE.Vector2() },
-      uRadius: { value: 1 },
-      uRotation: { value: new THREE.Vector3() }
-    };
-    const territories = [];
-    for (const entity of bridge.entities) {
-      const mesh = buildTerritory(entity, entity.iso2 === 'AQ' ? '#b8c8c9' : bridge.colorFor(entity.iso2 || entity.id), uniforms);
-      if (!mesh) continue;
-      mesh.userData = { territoryId: entity.iso2 || entity.id, pickId: entity.pickId };
-      scene.add(mesh);
-      territories.push(mesh);
+function initialize(bridge){
+  if(!bridge?.entities||!window.d3){document.documentElement.dataset.structuralRenderer='fallback';return;}
+  const visibleEntities=[...bridge.entities].filter(entity=>entity?.feature?.geometry?.coordinates?.length);
+  const topHeight=.018,bevelHeight=.012,shrink=.992;
+  const colorCache=new Map();
+  const rgb=hex=>{
+    if(colorCache.has(hex))return colorCache.get(hex);
+    const value=parseInt(hex.slice(1),16),color=[value>>16&255,value>>8&255,value&255];
+    colorCache.set(hex,color);return color;
+  };
+  const shade=(color,factor)=>`rgb(${Math.round(color[0]*factor)},${Math.round(color[1]*factor)},${Math.round(color[2]*factor)})`;
+  const transformPoint=(point,anchor,center,height,localShrink=1)=>{
+    const radial=[center.x+(point[0]-center.x)*(1+height),center.y+(point[1]-center.y)*(1+height)];
+    return[anchor[0]+(radial[0]-anchor[0])*localShrink,anchor[1]+(radial[1]-anchor[1])*localShrink];
+  };
+  const projectRing=(ring,projection,center,anchor,height,localShrink)=>{
+    const result=[];
+    for(const coordinate of ring){
+      if(d3.geoDistance(coordinate,center.geo)>Math.PI/2-.006){result.push(null);continue;}
+      const projected=projection(coordinate);
+      result.push(projected?transformPoint(projected,anchor,center,height,localShrink):null);
     }
-    if (!territories.length) throw new Error('Nenhuma geometria territorial válida foi criada.');
-    const frame = () => {
-      const state = bridge.state, globeCamera = bridge.camera(), dpr = state.dpr;
-      const width = Math.max(1, Math.round(state.width * dpr)), height = Math.max(1, Math.round(state.height * dpr));
-      if (canvas.width !== width || canvas.height !== height) renderer.setSize(width, height, false);
-      uniforms.uResolution.value.set(width, height);
-      uniforms.uCenter.value.set(globeCamera.x * dpr, globeCamera.y * dpr);
-      uniforms.uRadius.value = globeCamera.r * dpr;
-      uniforms.uRotation.value.set(...state.rotation.map(value => value * bridge.radians));
-      renderer.render(scene, camera);
-      requestAnimationFrame(frame);
-    };
-    document.documentElement.dataset.structuralRenderer = 'active';
-    document.documentElement.dataset.structuralTerritories = String(territories.length);
-    requestAnimationFrame(frame);
-  } catch (error) {
-    document.documentElement.dataset.structuralRenderer = 'fallback';
-    console.warn('[Mango structural] Camada indisponível; fallback v0.37 preservado.', error);
-  }
-}
-
-function buildTerritory(entity, hexColor, uniforms) {
-  const positions = [], colors = [], faces = [], color = new THREE.Color(hexColor);
-  for (const polygon of entity.feature?.geometry?.coordinates || []) appendPolygon(polygon, positions, colors, faces, color);
-  if (!positions.length) return null;
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('aGeo', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('aColor', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setAttribute('aFace', new THREE.Float32BufferAttribute(faces, 1));
-  const material = new THREE.RawShaderMaterial({
-    uniforms, transparent: true, depthTest: true, depthWrite: true, side: THREE.DoubleSide,
-    vertexShader: `#version 300 es
-      precision highp float;
-      in vec3 position;in vec3 aGeo;in vec3 aColor;in float aFace;
-      uniform vec2 uResolution;uniform vec2 uCenter;uniform float uRadius;uniform vec3 uRotation;
-      out vec3 vColor;out float vFace;out float vDepth;out vec2 vGeo;
-      vec3 projectGeo(float lon,float lat,float elevation){
-        float lambda=lon+uRotation.x,cp=cos(lat),x=cos(lambda)*cp,y=sin(lambda)*cp,z=sin(lat);
-        float cdp=cos(uRotation.y),sdp=sin(uRotation.y),cdg=cos(uRotation.z),sdg=sin(uRotation.z);
-        float k=z*cdp+x*sdp,viewLon=atan(y*cdg-k*sdg,x*cdp-z*sdp),viewLat=asin(clamp(k*cdg+y*sdg,-1.,1.));
-        float cv=cos(viewLat),depth=cv*cos(viewLon),scale=1.+elevation;
-        vec2 screen=uCenter+vec2(cv*sin(viewLon),-sin(viewLat))*uRadius*scale;
-        return vec3(screen.x/uResolution.x*2.-1.,1.-screen.y/uResolution.y*2.,depth);
+    return result;
+  };
+  const trace=(ctx,points,close=true)=>{
+    let open=false;
+    for(const point of points){
+      if(!point){open=false;continue;}
+      if(!open){ctx.moveTo(point[0],point[1]);open=true;}else ctx.lineTo(point[0],point[1]);
+    }
+    if(close&&open)ctx.closePath();
+  };
+  window.MANGO_STRUCTURAL_DRAW=({ctx,projection,center:geoCenter,cam})=>{
+    const center={x:cam.x,y:cam.y,geo:geoCenter};
+    const sorted=visibleEntities.map(entity=>({entity,distance:d3.geoDistance(entity.anchor,geoCenter)}))
+      .filter(item=>item.distance<Math.PI/2+.45).sort((a,b)=>b.distance-a.distance);
+    ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
+    for(const {entity} of sorted){
+      const baseColor=rgb(entity.iso2==='AQ'?'#b8c8c9':bridge.colorFor(entity.iso2||entity.id));
+      const anchorProjection=projection(entity.anchor);
+      if(!anchorProjection)continue;
+      for(const polygon of entity.feature.geometry.coordinates){
+        for(const ring of polygon){
+          const base=projectRing(ring,projection,center,anchorProjection,.001,1);
+          const bevel=projectRing(ring,projection,center,anchorProjection,bevelHeight,.996);
+          const top=projectRing(ring,projection,center,anchorProjection,topHeight,shrink);
+          for(let i=0;i<ring.length-1;i++){
+            if(!base[i]||!base[i+1]||!bevel[i]||!bevel[i+1]||!top[i]||!top[i+1])continue;
+            const dx=top[i+1][0]-top[i][0],dy=top[i+1][1]-top[i][1];
+            const directional=.70+.18*Math.max(-1,Math.min(1,(dx-dy)/(Math.hypot(dx,dy)||1)));
+            ctx.beginPath();trace(ctx,[base[i],base[i+1],bevel[i+1],bevel[i]]);
+            ctx.fillStyle=shade(baseColor,.27*directional);ctx.fill();
+            ctx.beginPath();trace(ctx,[bevel[i],bevel[i+1],top[i+1],top[i]]);
+            ctx.fillStyle=shade(baseColor,.48*directional);ctx.fill();
+          }
+        }
       }
-      void main(){vec3 p=projectGeo(aGeo.x,aGeo.y,aGeo.z);gl_Position=vec4(p.xy,-p.z,1.);vColor=aColor;vFace=aFace;vDepth=p.z;vGeo=aGeo.xy;}`,
-    fragmentShader: `#version 300 es
-      precision highp float;
-      in vec3 vColor;in float vFace;in float vDepth;in vec2 vGeo;out vec4 outColor;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
-      float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}
-      void main(){
-        if(vDepth<-.015)discard;
-        float mineral=floor(noise(vGeo*vec2(115.,72.))*7.)/7.,grain=(hash(floor(gl_FragCoord.xy*.72))-.5)*.055;
-        float light=clamp(.48+vDepth*.34+.16*sin(vGeo.x+1.1),.24,1.08);
-        vec3 top=vColor*(.76+light*.30)+vec3(.10,.072,.032)*(mineral-.5)+grain;
-        vec3 bevel=vColor*(.50+light*.18)+vec3(.10,.065,.020),side=vColor*(.20+light*.12);
-        vec3 color=mix(top,bevel,step(.5,vFace));color=mix(color,side,step(1.5,vFace));
-        outColor=vec4(color,smoothstep(-.015,.025,vDepth)*.995);
-      }`
-  });
-  return new THREE.Mesh(geometry, material);
+    }
+    for(const {entity} of sorted){
+      const baseColor=rgb(entity.iso2==='AQ'?'#b8c8c9':bridge.colorFor(entity.iso2||entity.id));
+      const anchorProjection=projection(entity.anchor);
+      if(!anchorProjection)continue;
+      ctx.save();
+      ctx.translate(anchorProjection[0],anchorProjection[1]);ctx.scale(shrink,shrink);ctx.translate(-anchorProjection[0],-anchorProjection[1]);
+      ctx.translate(cam.x,cam.y);ctx.scale(1+topHeight,1+topHeight);ctx.translate(-cam.x,-cam.y);
+      ctx.beginPath();d3.geoPath(projection,ctx)(entity.feature);
+      const light=.80+.10*Math.sin((entity.anchor[0]+45)*Math.PI/180);
+      ctx.fillStyle=shade(baseColor,light);ctx.fill('evenodd');
+      ctx.strokeStyle='rgba(7,12,16,.70)';ctx.lineWidth=Math.max(.55,cam.r/850);ctx.stroke();
+      ctx.clip('evenodd');
+      const step=Math.max(3,Math.round(cam.r/155));
+      ctx.globalAlpha=.13;ctx.fillStyle='#f2d28b';
+      let seed=(entity.pickId*2654435761)>>>0;
+      const bounds=entity._structuralBounds||(entity._structuralBounds=d3.geoBounds(entity.feature));
+      for(let n=0;n<Math.min(120,18+Math.round((entity.labelRank||0)/240000));n++){
+        seed=(seed*1664525+1013904223)>>>0;const lon=bounds[0][0]+(seed/4294967295)*(bounds[1][0]-bounds[0][0]);
+        seed=(seed*1664525+1013904223)>>>0;const lat=bounds[0][1]+(seed/4294967295)*(bounds[1][1]-bounds[0][1]);
+        const q=projection([lon,lat]);if(q)ctx.fillRect(Math.round(q[0]/step)*step,Math.round(q[1]/step)*step,Math.max(1,step*.42),Math.max(1,step*.32));
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  };
+  document.documentElement.dataset.structuralRenderer='active-cpu';
+  document.documentElement.dataset.structuralTerritories=String(visibleEntities.length);
+  bridge.state.dirty=true;
 }
-
-function appendPolygon(polygon, positions, colors, faces, color) {
-  const rings = polygon.map(cleanRing).filter(ring => ring.length >= 3);
-  if (!rings.length) return;
-  const center = window.d3.geoCentroid({ type: 'Polygon', coordinates: polygon });
-  const lon0 = center[0] * Math.PI / 180, lat0 = center[1] * Math.PI / 180;
-  const projected = rings.map(ring => ring.map(point => tangent(point, lon0, lat0)));
-  const contour = projected[0].map(p => new THREE.Vector2(p.x, p.y));
-  const holes = projected.slice(1).map(ring => ring.map(p => new THREE.Vector2(p.x, p.y)));
-  const triangles = THREE.ShapeUtils.triangulateShape(contour, holes), flat = rings.flat();
-  for (const triangle of triangles) for (const index of triangle) push(flat[index], topHeight(flat[index]), color, 0, positions, colors, faces);
-  for (const ring of rings) for (let i = 0; i < ring.length; i++) {
-    const a = ring[i], b = ring[(i + 1) % ring.length];
-    quad(a, b, SIDE_TOP, BASE_HEIGHT, color, 2, positions, colors, faces);
-    quad(a, b, TOP_HEIGHT, SIDE_TOP, color, 1, positions, colors, faces);
-  }
-}
-
-function cleanRing(ring) {
-  const result = Array.isArray(ring) ? ring.filter(point => Number.isFinite(point?.[0]) && Number.isFinite(point?.[1])) : [];
-  if (result.length > 1) {
-    const a = result[0], b = result.at(-1);
-    if (Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9) result.pop();
-  }
-  return result;
-}
-
-function tangent(point, lon0, lat0) {
-  const lon = point[0] * Math.PI / 180, lat = point[1] * Math.PI / 180;
-  let delta = lon - lon0;
-  while (delta > Math.PI) delta -= Math.PI * 2;
-  while (delta < -Math.PI) delta += Math.PI * 2;
-  return { x: Math.cos(lat) * Math.sin(delta), y: Math.cos(lat0) * Math.sin(lat) - Math.sin(lat0) * Math.cos(lat) * Math.cos(delta) };
-}
-
-function push(point, height, color, face, positions, colors, faces) {
-  positions.push(point[0] * Math.PI / 180, point[1] * Math.PI / 180, height);
-  colors.push(color.r, color.g, color.b);faces.push(face);
-}
-
-function quad(a, b, upper, lower, color, face, positions, colors, faces) {
-  for (const [point, height] of [[a,lower],[b,lower],[b,upper],[a,lower],[b,upper],[a,upper]]) push(point,height,color,face,positions,colors,faces);
-}
-
-function topHeight(point) {
-  return TOP_HEIGHT + (Math.sin(point[0] * 2.34 + point[1] * 3.25) * .5 + .5) * RELIEF_HEIGHT;
-}
-
-const BASE_HEIGHT=.0015,SIDE_TOP=.0105,TOP_HEIGHT=.014,RELIEF_HEIGHT=.00045;
