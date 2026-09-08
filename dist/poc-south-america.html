@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projeto Mango - Prova Estrutural América do Sul</title>
+<link rel="stylesheet" href="./assets/poc-south-america.css?v=042a">
+</head>
+<body>
+<main>
+  <section class="stage" aria-label="Prova estrutural do globo">
+    <canvas id="globe" width="900" height="900"></canvas>
+    <div class="legend">
+      <strong>PROVA ESTRUTURAL</strong>
+      <span>AMÉRICA DO SUL</span>
+    </div>
+    <div class="controls">
+      <button id="minus" aria-label="Afastar">-</button>
+      <input id="zoom" aria-label="Zoom" type="range" min="330" max="470" value="390">
+      <button id="plus" aria-label="Aproximar">+</button>
+    </div>
+  </section>
+  <aside>
+    <img src="./assets/reference.png" alt="Referência visual oficial do Projeto Mango">
+    <p>REFERÊNCIA OFICIAL</p>
+  </aside>
+</main>
+<script src="./assets/d3.min.js"></script>
+<script src="./assets/world-data.js"></script>
+<script src="./assets/poc-south-america.js?v=042a"></script>
+</body>
+</html>
