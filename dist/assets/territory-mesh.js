@@ -16,7 +16,18 @@ function initialize(bridge){
       pickId:entity.pickId||index+1
     }));
   const polygonsOf=geometry=>geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
-  const topHeight=.018,bevelHeight=.012,shrink=.992;
+  const topHeight=.011,bevelHeight=.007,shrink=.996;
+  const grainCanvas=document.createElement('canvas'),grainCtx=grainCanvas.getContext('2d');
+  grainCanvas.width=grainCanvas.height=64;
+  let grainSeed=0x4d414e47;
+  for(let i=0;i<780;i++){
+    grainSeed=(grainSeed*1664525+1013904223)>>>0;const x=grainSeed&63;
+    grainSeed=(grainSeed*1664525+1013904223)>>>0;const y=grainSeed&63;
+    grainSeed=(grainSeed*1664525+1013904223)>>>0;const light=(grainSeed&3)!==0;
+    grainCtx.fillStyle=light?'rgba(244,220,158,.18)':'rgba(0,8,12,.16)';
+    grainCtx.fillRect(x,y,(grainSeed&7)===0?2:1,1);
+  }
+  const grainPattern=ctx=>ctx.createPattern(grainCanvas,'repeat');
   const colorCache=new Map();
   const rgb=hex=>{
     if(colorCache.has(hex))return colorCache.get(hex);
@@ -81,17 +92,10 @@ function initialize(bridge){
       ctx.beginPath();d3.geoPath(projection,ctx)(entity.feature);
       const light=.80+.10*Math.sin((entity.anchor[0]+45)*Math.PI/180);
       ctx.fillStyle=shade(baseColor,light);ctx.fill('evenodd');
-      ctx.strokeStyle='rgba(7,12,16,.70)';ctx.lineWidth=Math.max(.55,cam.r/850);ctx.stroke();
+      ctx.strokeStyle='rgba(7,12,16,.58)';ctx.lineWidth=Math.max(.45,cam.r/1200);ctx.stroke();
       ctx.clip('evenodd');
-      const step=Math.max(3,Math.round(cam.r/155));
-      ctx.globalAlpha=.13;ctx.fillStyle='#f2d28b';
-      let seed=(entity.pickId*2654435761)>>>0;
-      const bounds=entity._structuralBounds||(entity._structuralBounds=d3.geoBounds(entity.feature));
-      for(let n=0;n<Math.min(120,18+Math.round((entity.labelRank||0)/240000));n++){
-        seed=(seed*1664525+1013904223)>>>0;const lon=bounds[0][0]+(seed/4294967295)*(bounds[1][0]-bounds[0][0]);
-        seed=(seed*1664525+1013904223)>>>0;const lat=bounds[0][1]+(seed/4294967295)*(bounds[1][1]-bounds[0][1]);
-        const q=projection([lon,lat]);if(q)ctx.fillRect(Math.round(q[0]/step)*step,Math.round(q[1]/step)*step,Math.max(1,step*.42),Math.max(1,step*.32));
-      }
+      ctx.globalAlpha=.72;ctx.fillStyle=grainPattern(ctx);
+      ctx.fillRect(cam.x-cam.r*1.05,cam.y-cam.r*1.05,cam.r*2.1,cam.r*2.1);
       ctx.restore();
     }
     ctx.restore();
