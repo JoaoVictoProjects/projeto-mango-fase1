@@ -16,6 +16,8 @@ function copyClassicAssets() {
         "app.js",
         "d3.min.js",
         "reference.png",
+        "three.core.min.js",
+        "three.module.min.js",
         "world-data.js"
       ];
 

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from './three.module.min.js';
 
 const enabled = new URLSearchParams(location.search).get('structural') === '1';
 if (enabled) startWhenReady();
